@@ -1,6 +1,6 @@
 # PyPhox
 Python tools for working with the Phoenix event dataset
-[phoenixdata.org](http://phoenixdata.org).
+([phoenixdata.org](http://phoenixdata.org)).
 
 ##Requirements
 
