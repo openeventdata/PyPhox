@@ -9,7 +9,7 @@ import lxml.html as lh
 from multiprocessing import Pool
 
 
-def get_links(data_type='daily'):
+def get_links(data_type='daily', version='current'):
     """
     Function to pull the links from the Phoenix data website.
 
@@ -19,6 +19,9 @@ def get_links(data_type='daily'):
     data_type: String.
                 Which data source to download: daily or historical.
 
+    version: String.
+                Data version. Defaults to current.
+
     Returns
     -------
 
@@ -27,29 +30,31 @@ def get_links(data_type='daily'):
 
     """
 
-    page = requests.get('http://phoenixdata.org/data')
-    text = page.content
-    doc = lh.fromstring(text)
-
     if data_type == 'daily':
-        print('Obtaining daily links...')
-        table = doc.xpath('//table[@name="daily"]')
-        dl_links = []
-        for link in table[0].iterlinks():
-            dl_links.append(link[2])
+        if version == 'current':
+            print('Obtaining daily links...')
+            page = requests.get('http://phoenixdata.org/data/current')
+            text = page.content
+            doc = lh.fromstring(text)
 
-        return dl_links
+            table = doc.xpath('//table[@name="data"]')
+            dl_links = []
+            for link in table[0].iterlinks():
+                dl_links.append(link[2])
+
+            return dl_links
     elif data_type == 'historical':
         pass
     elif data_type == 'update':
-        link_root = 'https://s3.amazonaws.com/oeda/data/events.full.'
-        d = datetime.datetime.now() - datetime.timedelta(days=1)
-        d_string = '{}{:02d}{:02d}'.format(d.year, d.month, d.day)
-        link = '{}{}.txt.zip'.format(link_root, d_string)
+        if version == 'current':
+            link_root = 'https://s3.amazonaws.com/oeda/data/current/events.full.'
+            d = datetime.datetime.now() - datetime.timedelta(days=1)
+            d_string = '{}{:02d}{:02d}'.format(d.year, d.month, d.day)
+            link = '{}{}.txt.zip'.format(link_root, d_string)
 
-        dl_links = [link]
+            dl_links = [link]
 
-        return dl_links
+            return dl_links
     else:
         print('Please enter a valid data type: daily, historical, or update.')
 
@@ -148,6 +153,9 @@ def parse_cli_args():
 
     aparse.add_argument('-t', '--type', help="""Which dataset to download:
                         daily, historical, or update.""", required=True)
+    aparse.add_argument('-v', '--version', help="""Which version of the daily
+                        data to download. Defaults to current.""",
+                        default='current', required=False)
     aparse.add_argument('-d', '--directory', help="""Directory in which to
                         store data.""", required=True)
     aparse.add_argument('-U', '--unzip', action='store_true', default=True,
@@ -166,9 +174,10 @@ if __name__ == '__main__':
     data_type = args.type
     dl_directory = args.directory
     unzip = args.unzip
+    version = args.version
     parallel = args.parallel
 
-    links = get_links(data_type=data_type)
+    links = get_links(data_type=data_type, version=version)
     if parallel:
         pool = Pool(4)
         print('Downloading data asynchronously...')
