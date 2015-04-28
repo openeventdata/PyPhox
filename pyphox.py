@@ -32,17 +32,20 @@ def get_links(data_type='daily', version='current'):
 
     if data_type == 'daily':
         if version == 'current':
-            print('Obtaining daily links...')
             page = requests.get('http://phoenixdata.org/data/current')
-            text = page.content
-            doc = lh.fromstring(text)
+        elif version == 'v010':
+            page = requests.get('http://phoenixdata.org/data/v010')
 
-            table = doc.xpath('//table[@name="data"]')
-            dl_links = []
-            for link in table[0].iterlinks():
-                dl_links.append(link[2])
+        print('Obtaining daily links...')
+        text = page.content
+        doc = lh.fromstring(text)
 
-            return dl_links
+        table = doc.xpath('//table[@name="data"]')
+        dl_links = []
+        for link in table[0].iterlinks():
+            dl_links.append(link[2])
+
+        return dl_links
     elif data_type == 'historical':
         pass
     elif data_type == 'update':
