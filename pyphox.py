@@ -7,6 +7,10 @@ import requests
 import argparse
 import lxml.html as lh
 from multiprocessing import Pool
+from glob import glob
+import csv, sys
+
+csv.field_size_limit(sys.maxsize)
 
 
 def get_links(data_type='daily', version='current'):
@@ -62,7 +66,7 @@ def get_links(data_type='daily', version='current'):
         print('Please enter a valid data type: daily, historical, or update.')
 
 
-def download_data(link, directory, unzip=False):
+def download_data(link, directory, unzip=False, clean_zip=False):
     """
 
     Parameters
@@ -85,12 +89,12 @@ def download_data(link, directory, unzip=False):
         written_file = _download_chunks(directory, link)
         if unzip:
             print('Unzipping {}...'.format(written_file))
-            _unzip_file(directory, written_file)
+            _unzip_file(directory, written_file, clean_zip)
     else:
         print('File for {} already exists. Passing.'.format(link_file))
 
 
-def _unzip_file(directory, zipped_file):
+def _unzip_file(directory, zipped_file, clean_zip):
     """
     Private function to unzip a zipped file that was downloaded.
 
@@ -112,9 +116,13 @@ def _unzip_file(directory, zipped_file):
                 content = f.read().decode('utf-8')
                 out_file.write(content)
         print('Done unzipping {}'.format(zipped_file))
+        if clean_zip:
+            os.remove(zipped_file)
+            print('Removed zip {}'.format(zipped_file))
         return out_path
     except zipfile.BadZipfile:
         print('Bad zip file for {}, passing.'.format(zipped_file))
+        
 
 
 def _download_chunks(directory, url):
@@ -167,6 +175,13 @@ def parse_cli_args():
     aparse.add_argument('-P', '--parallel', action='store_true', default=False,
                         help="""Boolean flag indicating whether or not to
                         download files in parallel. Default to False.""")
+    aparse.add_argument('-C', '--createCSV', action='store_true', default=False,
+                        help="""Boolean flag indicating whether or not to
+                        create a csv file of all event data. Default to False.
+                        File is created in the download folder as PhoenixData.csv.""")
+    aparse.add_argument('-l', '--cleanZip', action='store_true', default=False,
+                        help="""Boolean flag indicating whether or not to delete the
+                        downloaded .zip files after unzipping.  Default to False.""")
 
     args = aparse.parse_args()
     return args
@@ -179,15 +194,48 @@ if __name__ == '__main__':
     unzip = args.unzip
     version = args.version
     parallel = args.parallel
-
+    createCSV = args.createCSV
+    cleanZip = args.cleanZip
+    
+    try:
+        os.makedirs(dl_directory)
+    except OSError:
+        if not os.path.isdir(dl_directory):
+            raise
+    
     links = get_links(data_type=data_type, version=version)
     if parallel:
         pool = Pool(4)
         print('Downloading data asynchronously...')
-        results = [pool.apply_async(download_data, (link, dl_directory, unzip))
+        results = [pool.apply_async(download_data, (link, dl_directory, unzip, cleanZip))
                    for link in links]
         timeout = [r.get(9999999) for r in results]
         pool.terminate()
     else:
         for link in links:
-            download_data(link, dl_directory)
+            download_data(link, dl_directory, unzip, cleanZip)
+    if createCSV:
+        phoenixData = os.path.join(dl_directory, "PhoenixData.csv")
+        if os.path.isfile(phoenixData):
+            os.remove(phoenixData)
+        fileList = glob(os.path.join(dl_directory,"*.txt"))
+        fileList.sort()
+        print("Creating PhoenixData.csv")
+        with open(phoenixData, 'wb') as csvfile:
+            foutwriter = csv.writer(csvfile, dialect = 'excel')
+            header = ['EventID', 'Date', 'Year', 'Month', 'Day',
+                      'SourceActorFull', 'SourceActorEntity',
+                      'SourceActorRole', 'SourceActorAttribute',
+                      'TargetActorFull', 'TargetActorEntity',
+                      'TargetActorRole', 'TargetActorAttribute',
+                      'EventCode', 'EventRootCode', 'PentaClass',
+                      'GoldsteinScore', 'Issues', 'Lat', 'Lon',
+                      'LocationName', 'StateName', 'CountryCode',
+                      'SentenceID', 'URLs', 'NewsSources']
+            foutwriter.writerow(header)
+            for phoenixFile in fileList:
+                with open(phoenixFile, 'rb') as tsv_in:
+                    csv_in = csv.reader(tsv_in, delimiter = '\t')
+                    foutwriter.writerows(csv_in)
+                    
+                    
