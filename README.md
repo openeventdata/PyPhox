@@ -2,6 +2,9 @@
 Python tools for working with the Phoenix event dataset
 ([phoenixdata.org](http://phoenixdata.org)).
 
+This software was developed by Caerus Associates and donated to the Open Event
+Data Alliance.
+
 ##Requirements
 
 `PyPhox` currently requires `requests` and `lxml`. This will hopefully change
